@@ -3,12 +3,13 @@ using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace BnSVN_Discord_Bot
 {
-    public static class Commands
+    internal static class Commands
     {
-        public static Embed GetUserInfo(SocketGuildUser user)
+        internal static Embed GetUserInfo(SocketGuildUser user)
         {
             EmbedBuilder eb = new EmbedBuilder();
             eb.WithThumbnailUrl(user.GetAvatarUrl());

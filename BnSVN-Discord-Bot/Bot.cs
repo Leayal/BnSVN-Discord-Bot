@@ -11,14 +11,17 @@ namespace BnSVN_Discord_Bot
 {
     public class Bot
     {
+        // internal Database db;
         private string[] args;
-        private DiscordSocketClient client;
-        private static readonly char[] haicham = { ':' };
+        internal readonly DiscordSocketClient client;
+        
+
         public Bot()
         {
             this.client = new DiscordSocketClient(new DiscordSocketConfig() { MessageCacheSize = 0, ConnectionTimeout = 10000 });
             this.client.LoggedIn += this.Client_LoggedIn;
             this.client.Ready += this.Client_Ready;
+            this.client.UserUpdated += this.Client_UserUpdated;
             this.client.MessageReceived += this.Client_MessageReceived;
         }
 
@@ -39,15 +42,22 @@ namespace BnSVN_Discord_Bot
 
                             using (StringReader sr = new StringReader(arg.Content))
                             {
+                                char[] haicham;
                                 while (sr.Peek() > 0)
                                 {
                                     currentline = sr.ReadLine();
                                     if (!string.IsNullOrWhiteSpace(currentline))
                                     {
                                         if (currentline.IndexOf(':') > -1)
+                                            haicham = new char[] { ':' };
+                                        else if (currentline.IndexOf(' ') > -1)
+                                            haicham = new char[] { ' ' };
+                                        else
+                                            haicham = null;
+                                        if (haicham != null)
                                         {
                                             currentlineSplitted = currentline.Split(haicham, 2, StringSplitOptions.RemoveEmptyEntries);
-                                            currentlower = currentlineSplitted[0].ToLower();
+                                            currentlower = currentlineSplitted[0].Trim().ToLower();
                                             if (currentlower == "server")
                                             {
                                                 if (!string.IsNullOrWhiteSpace(currentlineSplitted[1]))
@@ -71,21 +81,29 @@ namespace BnSVN_Discord_Bot
                                     }
                                 }
                                 if (serverstring == null || serverstring.Length == 0)
-                                    await arg.Channel.SendMessageAsync("Xin vui lòng khai báo rằng nhân vật của bạn sẽ hoặc đang chơi ở máy chủ nào.");
+                                    await arg.Channel.SendMessageAsync("Xin vui lòng khai báo rằng nhân vật của bạn sẽ hoặc đang chơi ở máy chủ nào. Biểu mẫu có dạng:\n```Server: <tên máy chủ 1>, <tên máy chủ 2>, ..., <tên máy chủ N>```\nXin vui lòng khai báo đúng theo biểu mẫu (Có chữ `server` và có dấu `:`).");
                                 else
                                 {
                                     int i;
                                     string trimmed;
-                                    List<string> notfoundNames = new List<string>(serverstring.Length),
+                                    List<string> notfoundNames = null,
                                         addedNames = new List<string>(serverstring.Length);
                                     for (i = 0; i < serverstring.Length; i++)
                                         if (!string.IsNullOrWhiteSpace(serverstring[i]))
                                         {
                                             trimmed = serverstring[i].Trim();
                                             if (!cache_roles.ContainsKey(guilduser.Guild.Id))
+                                            {
+                                                if (notfoundNames == null)
+                                                    notfoundNames = new List<string>(serverstring.Length);
                                                 notfoundNames.Add(trimmed);
+                                            }
                                             else if (!cache_roles[guilduser.Guild.Id].ServerNames.ContainsKey(trimmed))
+                                            {
+                                                if (notfoundNames == null)
+                                                    notfoundNames = new List<string>(serverstring.Length);
                                                 notfoundNames.Add(trimmed);
+                                            }
                                             else
                                             {
                                                 SocketRole role = cache_roles[guilduser.Guild.Id].ServerNames[trimmed];
@@ -115,7 +133,7 @@ namespace BnSVN_Discord_Bot
 
                                         await arg.Channel.SendMessageAsync($"<@{arg.Author.Id}> đã được thêm vào danh sách thành viên {sb.ToString()}");
                                     }
-                                    if (notfoundNames.Count > 0)
+                                    if (notfoundNames != null && notfoundNames.Count > 0)
                                     {
                                         total = 0;
                                         for (i = 0; i < notfoundNames.Count; i++)
@@ -177,6 +195,12 @@ namespace BnSVN_Discord_Bot
             return false;
         }
 
+        private async Task Client_UserUpdated(SocketUser oldUser, SocketUser newUser)
+        {
+            if (newUser.IsBot || newUser.IsWebhook) return;
+            await Task.CompletedTask;
+        }
+
         private Dictionary<ulong, ServerInfo> cache_roles;
         private Task Client_Ready()
         {
@@ -196,27 +220,39 @@ namespace BnSVN_Discord_Bot
                         // Server names
                         case "đại mạc":
                             currentguild.ServerNames.Add(currentname, role);
+                            currentguild.ServerNames.Add("dm", role);
                             break;
                         case "thiên đỉnh":
                             currentguild.ServerNames.Add(currentname, role);
+                            currentguild.ServerNames.Add("td", role);
                             break;
                         case "đồng bằng thủy nguyệt":
                             currentguild.ServerNames.Add(currentname, role);
                             currentguild.ServerNames.Add("đồng bằng", role);
+                            currentguild.ServerNames.Add("đồng thủy nguyệt", role);
                             currentguild.ServerNames.Add("thủy nguyệt", role);
+                            currentguild.ServerNames.Add("dtn", role);
+                            currentguild.ServerNames.Add("dbtn", role);
                             break;
                         case "núi sương bạc":
                             currentguild.ServerNames.Add(currentname, role);
                             currentguild.ServerNames.Add("núi", role);
                             currentguild.ServerNames.Add("sương bạc", role);
+                            currentguild.ServerNames.Add("nsb", role);
                             break;
                         case "bờ biển lục lam":
                             currentguild.ServerNames.Add(currentname, role);
                             currentguild.ServerNames.Add("biển lục lam", role);
                             currentguild.ServerNames.Add("biển", role);
                             currentguild.ServerNames.Add("lục lam", role);
+                            currentguild.ServerNames.Add("bblm", role);
+                            currentguild.ServerNames.Add("blm", role);
                             break;
-
+                        case "trường hồng môn":
+                            currentguild.ServerNames.Add(currentname, role);
+                            currentguild.ServerNames.Add("trường hm", role);
+                            currentguild.ServerNames.Add("thm", role);
+                            break;
                         // Manager
                         case "quản lý":
                             currentguild.SetManagerRole(role);
@@ -242,11 +278,6 @@ namespace BnSVN_Discord_Bot
             this.Login().GetAwaiter().GetResult();
         }
 
-        public void Restart()
-        {
-
-        }
-
         public void Stop(int timeout)
         {
             Task exitTask = this.Logout();
@@ -269,12 +300,22 @@ namespace BnSVN_Discord_Bot
         {
             if (string.IsNullOrWhiteSpace(Info.BotInfo.BotToken))
                 throw new ArgumentNullException();
+            /*
+            if (this.db != null)
+                this.db.Dispose();
+            this.db = new Database();
+            await this.db.Connect();
+            //*/
             await this.client.LoginAsync(TokenType.Bot, Info.BotInfo.BotToken);
             await this.client.StartAsync();
         }
 
         private async Task Logout()
         {
+            /*
+            if (this.db != null)
+                this.db.Dispose();
+            //*/
             await this.client.LogoutAsync();
         }
     }

@@ -70,7 +70,7 @@ namespace BnSVN_Discord_Bot
                     {
                         string currentline,
                             currentItemName;
-                        uint currentItemPrice;
+                        // uint currentItemPrice;
                         string[] currentlineSplitted;
 
                         result = new List<TradeItemInfo>();
@@ -86,6 +86,73 @@ namespace BnSVN_Discord_Bot
                     }
             }
             return result;
+        }
+
+        public async Task<bool> IsUserRegistered(SocketGuildUser user)
+        {
+            using (MySqlCommand commandCheck = this.connection.CreateCommand())
+            {
+                commandCheck.CommandText = $"SELECT * FROM `users` WHERE `discordid`={user.Id}";
+                using (var readerCheck = await commandCheck.ExecuteReaderAsync())
+                {
+                    if (readerCheck.HasRows)
+                        return true;
+                    else
+                        return false;
+                }
+            }
+        }
+
+        public async Task<RequestRegisterResult> RequestRegisterUri(SocketGuildUser user)
+        {
+            if (await this.IsUserRegistered(user))
+                return new RequestRegisterResult(RequestRegisterResult.Code.AlreadyExist, null);
+            else
+            {
+                string sha1value;
+                using (System.Security.Cryptography.SHA512 sha = System.Security.Cryptography.SHA512.Create())
+                {
+                    byte[] rawdata = Encoding.ASCII.GetBytes(user.Id.ToString() + DateTime.Now.ToBinary().ToString());
+                    rawdata = sha.ComputeHash(rawdata);
+                    StringBuilder sb = new StringBuilder(rawdata.Length * 2);
+                    for (int i = 0; i < rawdata.Length; i++)
+                        sb.Append(rawdata[i].ToString("x2"));
+                    sha1value = sb.ToString();
+                }
+                try
+                {
+                    using (MySqlCommand commandCreate = this.connection.CreateCommand())
+                    {
+                        commandCreate.CommandText = $"INSERT INTO `registerUri` (`discordid`,`token`) VALUES({user.Id},\"{sha1value}\")";
+                        using (var readerCreate = await commandCreate.ExecuteReaderAsync())
+                        {
+                            if (readerCreate.RecordsAffected != 0)
+                                return new RequestRegisterResult(RequestRegisterResult.Code.Success, sha1value);
+                            else
+                                return new RequestRegisterResult(RequestRegisterResult.Code.UnknownError, null);
+                        }
+                    }
+                }
+                catch (MySqlException ex)
+                {
+                    if (ex.Number == 1062)
+                    {
+                        using (MySqlCommand commandCreate = this.connection.CreateCommand())
+                        {
+                            commandCreate.CommandText = $"UPDATE `registerUri` SET `token`=\"{sha1value}\", `created_at`=NOW() WHERE `discordid`={user.Id}";
+                            using (var readerCreate = await commandCreate.ExecuteReaderAsync())
+                            {
+                                if (readerCreate.RecordsAffected != 0)
+                                    return new RequestRegisterResult(RequestRegisterResult.Code.Success, sha1value);
+                                else
+                                    return new RequestRegisterResult(RequestRegisterResult.Code.UnknownError, null);
+                            }
+                        }
+                    }
+                    else
+                        return new RequestRegisterResult(RequestRegisterResult.Code.UnknownError, null);
+                }
+            }
         }
 
         public async Task<string> GetItemName(Guid id)
